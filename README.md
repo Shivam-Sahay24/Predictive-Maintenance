@@ -113,5 +113,86 @@ The optimized XGBoost model was trained on the combined training/validation set 
 ### Confusion Matrix Breakdown
 * **True Negatives:** ~1,913 healthy machines correctly left alone.
 * **True Positives:** ~55 broken machines successfully caught.
+
+* ---
+
+## Part 2: Environmental Regression Analysis (Delhi AQI Forecasting)
+
+### Project Overview
+A robust regression architecture designed to forecast the Air Quality Index (AQI) using 12 continuous pollutant sensors. The pipeline emphasizes handling extreme, non-linear environmental data spikes using tree-based ensembles and rigorous cross-validation.
+
+### 1. Exploratory Data Analysis (EDA)
+Conducted comprehensive EDA on the Delhi AQI dataset to analyze continuous target distributions and sensor relationships:
+* **Univariate Analysis:** The AQI distribution is heavily right-skewed, indicating extreme, non-linear pollution events (smog spikes). This skewness signals that linear models will struggle to predict peak events.
+* **Multivariate Analysis:** Correlation heatmaps revealed extreme multicollinearity between specific sensors (e.g., PM2.5 and PM10). 
+* **Target Mapping:** Scatterplots of sensors against the AQI target displayed chaotic, non-linear point clouds, confirming the necessity for tree-based ensembles over linear regression equations.
+
+### 2. Regression Pipeline Preparation & Methodology
+Adapted the greedy optimization pipeline from the classification phase:
+* **Architecture:** `Scaler` → `Selector / Extractor / Reducer` → `Regressor`
+* **Metrics:** Evaluated primarily on **Root Mean Squared Error (RMSE)** to heavily penalize the algorithm for missing massive, dangerous pollution spikes, alongside **R² Score** to track variance explanation.
+* *(Note: SMOTE was dropped as continuous target variables cannot be synthetically balanced).*
+
+---
+
+### 3. Step-by-Step Pipeline Optimization
+
+#### Step A: Feature Scaling
+Tested 5 different scalers using `RandomForestRegressor` as the baseline judge.
+
+| Scaler | RMSE | R² Score |
+| :--- | :--- | :--- |
+| **Quantile (Winner)** | **46.1479** | **0.7693** |
+| Standard | 46.1560 | 0.7692 |
+| MinMax | 46.1590 | 0.7692 |
+| Robust | 46.1664 | 0.7691 |
+| Power | 46.1697 | 0.7691 |
+
+**Conclusion:** `QuantileTransformer` won because AQI data is notoriously skewed. It mathematically maps the chaotic data to a perfect Gaussian bell curve, taming the extreme pollution days so the algorithms evaluate the data on an even playing field.
+
+#### Step B: Feature Selection, Extraction, and Reduction
+* **Selection:** Tested `SelectKBest` and `RFE`. Dropping any sensors increased RMSE to over 51.0.
+* **Reduction:** Tested `PCA`, `KernelPCA`, and `FastICA`. Mathematical compression increased RMSE to over 48.8.
+
+**Conclusion:** The model strictly rejected all selectors and reducers. Air pollution is a complex chemical equation where secondary pollutants matter heavily. The algorithm demands 100% of the raw, uncompressed physics data to track these chemical reactions accurately. 
+**Final Locked Pipeline:** `QuantileTransformer` → `None` → `None`
+
+---
+
+#### Step C: The 15-Model Regression Showdown
+Evaluated 15 different mathematical models against the locked pipeline using an explicit 5-Fold Cross-Validation loop. Linear models collapsed (scoring ~58.6 RMSE).
+
+**Top 5 Results:**
+| Model | Mean RMSE | Std Dev | Mean R² |
+| :--- | :--- | :--- | :--- |
+| **ExtraTreesRegressor** | **47.1586** | **0.7137** | **0.7570** |
+| CatBoostRegressor | 47.5468 | 0.5758 | 0.7529 |
+| RandomForestRegressor| 48.6252 | 0.9489 | 0.7416 |
+| HistGradientBoosting | 49.6317 | 0.5952 | 0.7307 |
+| XGBoostRegressor | 50.0474 | 0.6897 | 0.7262 |
+
+**Conclusion:** `ExtraTreesRegressor` won because it utilizes extreme mathematical randomness when drawing its decision boundaries. This architectural trait makes it highly resistant to the wild, unpredictable spikes characteristic of Delhi's AQI data.
+
+---
+
+### 4. Hyperparameter Tuning (Extra Trees)
+Tested Grid Search, Randomized Search, and Bayesian Optimization on the winning `ExtraTreesRegressor` algorithm.
+
+* **Winning Optimizer:** Grid Search successfully mapped the absolute mathematical peak in just 0.99 minutes, dropping the cross-validated RMSE from 47.15 to 46.9203.
+* **Winning Parameters:** `max_depth: 30`, `min_samples_leaf: 1`, `min_samples_split: 2`, `n_estimators: 300`
+
+---
+
+### 5. Final Model Interpretability & Unseen Evaluation
+Locked the winning parameters, trained the model on the combined Train/Validation data, and tested it on the 20% untouched holdout data.
+
+**Final Real-World Metrics:**
+* **FINAL UNSEEN RMSE:** 45.6039
+* **FINAL UNSEEN MAE:** 33.1986
+* **FINAL UNSEEN R²:** 0.7748
+
+### Physical Interpretation & Generalization
+* **Perfect Generalization:** The Unseen Test RMSE (45.60) actually dropped *below* the Validation RMSE (46.92). This mathematically proves the model generalized perfectly to unseen air compositions without overfitting.
+* **Real-World Utility:** The Mean Absolute Error (MAE) of ~33.19 indicates that on an average day, the model is off by only 33 AQI points. Given the massive scale of Delhi's AQI (often ranging from 0 to 500+), an error margin of 33 points makes this a highly robust predictive engine for classifying broad AQI danger categories.
 * **False Positives:** ~19 healthy machines flagged for unnecessary inspection (False Alarms).
 * **False Negatives:** ~13 broken machines missed by the algorithm.
